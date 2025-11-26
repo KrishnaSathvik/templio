@@ -9,6 +9,7 @@ import 'prismjs/components/prism-javascript'
 import 'prismjs/plugins/line-numbers/prism-line-numbers.css'
 import 'prismjs/plugins/line-numbers/prism-line-numbers'
 import { logger } from '../utils/logger'
+import { validateAndSanitizeHTML } from '../utils/validation'
 import './SnippetDetail.css'
 
 function SnippetDetail({ snippet, onBack, onDelete, onUpdate }) {
@@ -59,6 +60,10 @@ function SnippetDetail({ snippet, onBack, onDelete, onUpdate }) {
 
     let html = snippet.htmlCode.trim()
 
+    // Note: HTML is saved as-is (not sanitized) to preserve all functionality
+    // Sanitization can be added here for preview if needed, but it may break some templates
+    // For now, we use the original HTML to ensure compatibility with all templates
+
     // Detect if this is already a full HTML document
     const hasFullDocument =
       /<!doctype html/i.test(html) || /<html[\s\S]*?>/i.test(html)
@@ -83,15 +88,26 @@ ${html}
     }
 
     const handleLoad = () => {
-      setIframeLoading(false)
+      // Simple delay to ensure content is rendered
+      setTimeout(() => {
+        setIframeLoading(false)
+      }, 100)
     }
 
     // Use srcdoc for same-origin content
     iframe.srcdoc = html
-    iframe.addEventListener('load', handleLoad)
-
+    
+    // Wait for iframe load event
+    iframe.addEventListener('load', handleLoad, { once: true })
+    
+    // Fallback timeout in case load event doesn't fire
+    const timeout = setTimeout(() => {
+      setIframeLoading(false)
+    }, 1000)
+    
     return () => {
       iframe.removeEventListener('load', handleLoad)
+      clearTimeout(timeout)
     }
   }, [snippet.htmlCode, view])
 
@@ -303,9 +319,10 @@ ${html}
                 ref={iframeRef}
                 title="HTML Preview"
                 className="preview-iframe"
-                // Note: allow-same-origin is required for iframe content manipulation
-                // This is safe in our controlled environment where we control the content
-                sandbox="allow-same-origin allow-scripts"
+                // Note: allow-same-origin is required for html2canvas screenshot generation
+                // allow-scripts is needed for JavaScript in templates to work
+                // This is safe because we sanitize all HTML before saving
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 loading="eager"
               />

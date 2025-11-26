@@ -111,6 +111,7 @@ function Auth({ onAuthSuccess }) {
                 required
                 minLength={6}
                 disabled={loading}
+                autoComplete="current-password"
               />
             </div>
 

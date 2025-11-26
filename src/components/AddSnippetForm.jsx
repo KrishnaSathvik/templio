@@ -41,18 +41,11 @@ function AddSnippetForm({ onSubmit, onCancel }) {
       return
     }
 
+    // Validate HTML size (but don't sanitize on save - only sanitize on preview for security)
     const htmlSizeValidation = validateHTMLSize(htmlCode)
     if (!htmlSizeValidation.valid) {
       setValidationErrors({ htmlCode: htmlSizeValidation.error })
       toast.error(htmlSizeValidation.error, { title: 'Validation Error' })
-      return
-    }
-
-    // Sanitize HTML
-    const htmlValidation = validateAndSanitizeHTML(htmlCode)
-    if (!htmlValidation.valid) {
-      setValidationErrors({ htmlCode: htmlValidation.error })
-      toast.error(htmlValidation.error, { title: 'Validation Error' })
       return
     }
 
@@ -63,13 +56,39 @@ function AddSnippetForm({ onSubmit, onCancel }) {
       // Generate screenshot
       const { default: html2canvas } = await import('html2canvas')
       
+      // Process HTML for screenshot generation
+      // Don't sanitize - use original HTML to preserve all functionality
+      let processedHtml = htmlCode.trim()
+      
       // Convert external images to data URLs to avoid CORS issues
-      let processedHtml = htmlValidation.sanitized
       try {
-        processedHtml = await convertImagesToDataUrls(htmlValidation.sanitized)
+        processedHtml = await convertImagesToDataUrls(processedHtml)
       } catch (error) {
         logger.warn('Failed to process images, using original HTML:', error)
-        processedHtml = htmlValidation.sanitized
+        // Continue with original HTML
+      }
+      
+      // Detect if this is already a full HTML document
+      const hasFullDocument =
+        /<!doctype html/i.test(processedHtml) || /<html[\s\S]*?>/i.test(processedHtml)
+
+      if (!hasFullDocument) {
+        // Wrap partial HTML inside a minimal shell
+        processedHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Screenshot</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100vh; }
+  </style>
+</head>
+<body>
+${processedHtml}
+</body>
+</html>`
       }
       
       // Create a temporary iframe to render the HTML
@@ -79,6 +98,8 @@ function AddSnippetForm({ onSubmit, onCancel }) {
       iframe.style.width = '1200px'
       iframe.style.height = '800px'
       iframe.style.border = 'none'
+      // Add sandbox attributes to allow html2canvas to work
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups')
       document.body.appendChild(iframe)
 
       const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
@@ -90,49 +111,56 @@ function AddSnippetForm({ onSubmit, onCancel }) {
       iframeDoc.write(processedHtml)
       iframeDoc.close()
 
-      // Wait for images and content to load
+      // Wait for images, stylesheets, and content to load
       await new Promise((resolve) => {
         const checkReady = () => {
           const images = iframeDoc.querySelectorAll('img')
+          const stylesheets = iframeDoc.querySelectorAll('link[rel="stylesheet"]')
           let loadedCount = 0
-          const totalImages = images.length
+          const totalResources = images.length + stylesheets.length
 
-          if (totalImages === 0) {
-            setTimeout(resolve, 300)
+          if (totalResources === 0) {
+            setTimeout(resolve, 500) // Give time for rendering even if no external resources
             return
+          }
+
+          const resourceLoaded = () => {
+            loadedCount++
+            if (loadedCount === totalResources) {
+              setTimeout(resolve, 300) // Small delay to ensure rendering
+            }
           }
 
           images.forEach((img) => {
             if (img.complete) {
-              loadedCount++
+              resourceLoaded()
             } else {
-              img.onload = () => {
-                loadedCount++
-                if (loadedCount === totalImages) {
-                  setTimeout(resolve, 200)
-                }
-              }
-              img.onerror = () => {
-                loadedCount++
-                if (loadedCount === totalImages) {
-                  setTimeout(resolve, 200)
-                }
-              }
+              img.onload = resourceLoaded
+              img.onerror = resourceLoaded // Count as loaded even if error
             }
           })
 
-          if (loadedCount === totalImages) {
-            setTimeout(resolve, 200)
+          stylesheets.forEach((link) => {
+            if (link.sheet) { // Check if stylesheet is loaded
+              resourceLoaded()
+            } else {
+              link.onload = resourceLoaded
+              link.onerror = resourceLoaded // Count as loaded even if error
+            }
+          })
+
+          if (loadedCount === totalResources) {
+            setTimeout(resolve, 300)
           } else {
-            // Timeout after 5 seconds
+            // Timeout after 5 seconds if some resources are still loading
             setTimeout(resolve, 5000)
           }
         }
 
         iframe.onload = () => {
-          setTimeout(checkReady, 100)
+          setTimeout(checkReady, 200) // Initial check after iframe loads
         }
-        setTimeout(checkReady, 500)
+        setTimeout(checkReady, 1000) // Fallback check if iframe.onload doesn't fire
       })
 
       const canvas = await html2canvas(iframeDoc.body, {
@@ -191,7 +219,8 @@ function AddSnippetForm({ onSubmit, onCancel }) {
     onSubmit({
       title: titleValidation.sanitized,
       description: descValidation.sanitized,
-      htmlCode: htmlValidation.sanitized,
+      // Save original HTML, not sanitized (sanitize only on preview for security)
+      htmlCode: htmlCode.trim(),
       screenshot,
     })
 

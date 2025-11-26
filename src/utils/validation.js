@@ -26,28 +26,59 @@ export function validateAndSanitizeHTML(html) {
   }
 
   // Sanitize HTML using DOMPurify
-  // We use a more permissive config for preview, but still safe
+  // We use a very permissive config to preserve all HTML structure
+  // Only remove truly dangerous elements (scripts, iframes in some contexts)
   const sanitized = DOMPurify.sanitize(html, {
+    // Allow all common HTML tags
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'ul', 'ol', 'li', 'a', 'img', 'div', 'span', 'section', 'article', 'header',
-      'footer', 'nav', 'main', 'aside', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
-      'form', 'input', 'button', 'textarea', 'select', 'label', 'blockquote', 'pre',
-      'code', 'hr', 'dl', 'dt', 'dd', 'figure', 'figcaption', 'video', 'audio',
-      'source', 'track', 'canvas', 'svg', 'path', 'circle', 'rect', 'line', 'polyline',
-      'polygon', 'ellipse', 'text', 'g', 'defs', 'use', 'clipPath', 'mask', 'pattern',
-      'linearGradient', 'radialGradient', 'stop', 'style', 'link', 'meta'
+      'p', 'br', 'strong', 'em', 'u', 's', 'b', 'i', 'small', 'sub', 'sup', 'mark', 'del', 'ins',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+      'a', 'img', 'div', 'span', 'section', 'article', 'header', 'footer', 'nav', 'main', 'aside',
+      'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'colgroup', 'col',
+      'form', 'input', 'button', 'textarea', 'select', 'option', 'optgroup', 'label', 'fieldset', 'legend',
+      'blockquote', 'pre', 'code', 'hr',
+      'figure', 'figcaption',
+      'video', 'audio', 'source', 'track',
+      'canvas', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'text', 'g',
+      'defs', 'use', 'clipPath', 'mask', 'pattern', 'linearGradient', 'radialGradient', 'stop',
+      'style', 'link', 'meta', 'head', 'body', 'html', 'title',
+      'noscript', 'template', 'slot'
     ],
     ALLOWED_ATTR: [
+      // Common attributes
       'href', 'src', 'alt', 'title', 'class', 'id', 'style', 'width', 'height',
       'target', 'rel', 'type', 'value', 'name', 'placeholder', 'required', 'disabled',
       'checked', 'selected', 'rows', 'cols', 'maxlength', 'minlength', 'pattern',
-      'autocomplete', 'autofocus', 'readonly', 'aria-label', 'aria-labelledby',
-      'role', 'data-*', 'viewBox', 'fill', 'stroke', 'stroke-width', 'cx', 'cy',
-      'r', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'points', 'd', 'transform'
+      'autocomplete', 'autofocus', 'readonly', 'multiple', 'step', 'min', 'max',
+      // ARIA attributes
+      'aria-label', 'aria-labelledby', 'aria-describedby', 'aria-hidden', 'aria-live',
+      'role', 'tabindex',
+      // Data attributes
+      'data-*',
+      // SVG attributes
+      'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
+      'cx', 'cy', 'r', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'points', 'd', 'transform',
+      'preserveAspectRatio', 'xmlns', 'xmlns:xlink',
+      // Media attributes
+      'controls', 'autoplay', 'loop', 'muted', 'poster', 'preload',
+      // Form attributes
+      'action', 'method', 'enctype', 'accept', 'accept-charset',
+      // Meta attributes
+      'charset', 'content', 'http-equiv', 'property', 'name',
+      // Link attributes
+      'media', 'sizes', 'hreflang', 'crossorigin',
+      // Other
+      'lang', 'dir', 'contenteditable', 'spellcheck', 'draggable'
     ],
     ALLOW_DATA_ATTR: true,
     KEEP_CONTENT: true,
+    // Allow style tags and inline styles
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+    SAFE_FOR_TEMPLATES: false,
+    // Don't remove style tags
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
   })
 
   return {
