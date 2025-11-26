@@ -1,0 +1,229 @@
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  padding: 2rem 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-content {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.auth-container {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  width: 100%;
+  padding: 2.5rem;
+  box-shadow: 0 20px 60px var(--shadow);
+  position: relative;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.auth-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--acid), transparent);
+  border-radius: 1rem 1rem 0 0;
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-header h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.75rem 0;
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.auth-header p {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.auth-message {
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.5;
+}
+
+.auth-error {
+  background: rgba(255, 51, 0, 0.1);
+  color: var(--error);
+  border: 1px solid rgba(255, 51, 0, 0.3);
+}
+
+.auth-success {
+  background: rgba(0, 204, 102, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(0, 204, 102, 0.3);
+}
+
+.auth-footer {
+  margin-top: 2rem;
+  text-align: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.auth-toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: none;
+  padding: 0.5rem;
+  transition: all 0.3s ease;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+}
+
+.auth-toggle:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.btn-full {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--text);
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--text);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+  background: var(--panel);
+}
+
+.light-theme .form-group input:focus {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.dark-theme .form-group input:focus {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+.form-group input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-group input::placeholder {
+  color: var(--muted);
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-page {
+    padding: 1.5rem 1rem;
+  }
+
+  .auth-content {
+    gap: 2rem;
+  }
+
+  .auth-container {
+    padding: 2rem 1.5rem;
+    border-radius: 0.75rem;
+  }
+
+  .auth-header h2 {
+    font-size: 1.75rem;
+  }
+
+  .auth-header p {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .auth-header h2 {
+    font-size: 1.5rem;
+  }
+}

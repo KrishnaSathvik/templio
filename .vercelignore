@@ -1,0 +1,23 @@
+# Vercel ignore file
+# Files and directories to exclude from deployment
+
+# Environment files (already in .gitignore, but good to be explicit)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Development files
+node_modules
+.vscode
+.idea
+*.log
+
+# Build artifacts (Vercel builds these)
+dist
+dist-ssr
+
+# Documentation (optional - you might want to keep these)
+# *.md
+# !README.md
+

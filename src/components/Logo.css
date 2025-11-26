@@ -1,0 +1,44 @@
+.logo-container {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.logo-container:hover {
+  transform: scale(1.03);
+}
+
+.logo-text {
+  display: inline-flex;
+  align-items: center;
+}
+
+.logo-templio {
+  font-family: 'Dancing Script', 'Great Vibes', cursive;
+  font-weight: 700;
+  font-size: 2.5rem;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  display: inline-block;
+}
+
+.logo-container:hover .logo-templio {
+  transform: scale(1.08) translateY(-2px);
+  opacity: 0.9;
+  }
+
+@media (max-width: 768px) {
+  .logo-templio {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-templio {
+    font-size: 1.75rem;
+  }
+}
+

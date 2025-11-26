@@ -1,0 +1,102 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Dark Theme (default) - Black background, white text */
+  --obsidian: #000000;
+  --charcoal: #0a0a0a;
+  --concrete: #f4f4f5;
+  --acid: #ffffff;
+  --lime: #ffffff;
+  --danger: #ff453a;
+  --void: #000000;
+  --surface: #000000;
+  --panel: #0a0a0a;
+  --border: rgba(255, 255, 255, 0.15);
+  --accent: #ffffff;
+  --success: #00cc66;
+  --error: #ff3300;
+  --dim: #666666;
+  --muted: #999999;
+  --text: #ffffff;
+  --warning: #ffaa00;
+  
+  /* Legacy compatibility */
+  --bg-primary: var(--surface);
+  --bg-secondary: var(--surface);
+  --bg-tertiary: var(--panel);
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --accent-hover: var(--acid);
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
+/* Light Theme - White background, black text */
+.light-theme {
+  --obsidian: #ffffff;
+  --charcoal: #f4f4f5;
+  --concrete: #18181b;
+  --acid: #000000;
+  --lime: #000000;
+  --danger: #dc2626;
+  --void: #000000;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --border: rgba(0, 0, 0, 0.15);
+  --accent: #000000;
+  --success: #059669;
+  --error: #dc2626;
+  --dim: #6b7280;
+  --muted: #6b7280;
+  --text: #000000;
+  --warning: #d97706;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --code-bg: #ffffff;
+  --code-gutter-bg: #f4f4f5;
+  --code-gutter-border: rgba(0, 0, 0, 0.15);
+  --preview-bg: #ffffff;
+}
+
+/* Dark Theme - code editor colors */
+.dark-theme {
+  --code-bg: #000000;
+  --code-gutter-bg: #0a0a0a;
+  --code-gutter-border: rgba(255, 255, 255, 0.15);
+  --preview-bg: #000000;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 100vh;
+  position: relative;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.font-serif {
+  font-family: 'Playfair Display', serif;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
