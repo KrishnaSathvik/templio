@@ -84,18 +84,8 @@
   flex-shrink: 0;
 }
 
-/* Always show favorite button */
-.btn-icon-favorite {
-  opacity: 1;
-}
-
-/* Other buttons only show on hover */
-.btn-icon-small:not(.btn-icon-favorite) {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.snippet-card:hover .btn-icon-small:not(.btn-icon-favorite) {
+/* Always show all buttons */
+.btn-icon-small {
   opacity: 1;
 }
 

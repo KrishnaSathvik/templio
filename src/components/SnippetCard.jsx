@@ -1,4 +1,4 @@
-import { Eye, Trash2, Calendar, Star } from 'lucide-react'
+import { Trash2, Calendar, Star } from 'lucide-react'
 import './SnippetCard.css'
 
 function SnippetCard({ snippet, onView, onDelete, onToggleFavorite, isDeleting, isTogglingFavorite }) {
@@ -6,9 +6,7 @@ function SnippetCard({ snippet, onView, onDelete, onToggleFavorite, isDeleting, 
 
   const handleDelete = (e) => {
     e.stopPropagation()
-    if (window.confirm('Are you sure you want to delete this template?')) {
-      onDelete(snippet.id)
-    }
+    onDelete(snippet.id, snippet.title)
   }
 
   const handleToggleFavorite = (e) => {
@@ -50,16 +48,6 @@ function SnippetCard({ snippet, onView, onDelete, onToggleFavorite, isDeleting, 
               ) : (
                 <Star size={18} fill={snippet.isFavorite ? 'currentColor' : 'none'} />
               )}
-            </button>
-            <button
-              className="btn-icon-small"
-              onClick={(e) => {
-                e.stopPropagation()
-                onView(snippet)
-              }}
-              title="View"
-            >
-              <Eye size={18} />
             </button>
             <button
               className="btn-icon-small btn-icon-danger"

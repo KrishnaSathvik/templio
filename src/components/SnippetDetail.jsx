@@ -187,10 +187,7 @@ ${html}
   }
 
   const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this template?')) {
-      onDelete(snippet.id)
-      onBack()
-    }
+    onDelete(snippet.id, snippet.title)
   }
 
 

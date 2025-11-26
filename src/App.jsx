@@ -9,6 +9,7 @@ import Auth from './components/Auth'
 import Logo from './components/Logo'
 import GradientBlur from './components/GradientBlur'
 import ThemeSwitcher from './components/ThemeSwitcher'
+import ConfirmDialog from './components/ConfirmDialog'
 import { useToast } from './contexts/ToastContext'
 import { logger } from './utils/logger'
 import './App.css'
@@ -33,6 +34,33 @@ function App() {
     return []
   }
 
+  // Load filter from localStorage
+  const loadFilter = () => {
+    try {
+      const saved = localStorage.getItem('templio_filter')
+      if (saved && ['newest', 'oldest', 'favorites'].includes(saved)) {
+        return saved
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+    return 'newest'
+  }
+
+  // Load current page from localStorage
+  const loadCurrentPage = () => {
+    try {
+      const saved = localStorage.getItem('templio_currentPage')
+      if (saved) {
+        const page = parseInt(saved, 10)
+        if (page > 0) return page
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+    return 1
+  }
+
   const [snippets, setSnippets] = useState(loadCachedSnippets())
   const [showForm, setShowForm] = useState(false)
   const [selectedSnippet, setSelectedSnippet] = useState(null)
@@ -43,8 +71,9 @@ function App() {
   const [updatingSnippetId, setUpdatingSnippetId] = useState(null)
   const [togglingFavoriteId, setTogglingFavoriteId] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [filter, setFilter] = useState('newest') // 'newest', 'oldest', 'favorites'
+  const [currentPage, setCurrentPage] = useState(loadCurrentPage())
+  const [filter, setFilter] = useState(loadFilter()) // 'newest', 'oldest', 'favorites'
+  const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, snippetId: null, snippetTitle: null })
   const itemsPerPage = 6
 
   // Restore selected snippet from URL when snippets are loaded
@@ -247,15 +276,19 @@ function App() {
     }
   }
 
-  const handleDeleteSnippet = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this template?')) {
-      return
-    }
+  const handleDeleteClick = (id, title) => {
+    setDeleteConfirm({ isOpen: true, snippetId: id, snippetTitle: title })
+  }
 
-    setDeletingSnippetId(id)
+  const handleDeleteConfirm = async () => {
+    const { snippetId } = deleteConfirm
+    if (!snippetId) return
+
+    setDeleteConfirm({ isOpen: false, snippetId: null, snippetTitle: null })
+    setDeletingSnippetId(snippetId)
     try {
-      await snippetsService.delete(id)
-      const updated = snippets.filter((s) => s.id !== id)
+      await snippetsService.delete(snippetId)
+      const updated = snippets.filter((s) => s.id !== snippetId)
       setSnippets(updated)
       // Update cache
       try {
@@ -266,7 +299,8 @@ function App() {
       } catch (e) {
         // Ignore cache errors
       }
-      if (selectedSnippet?.id === id) {
+      // If deleted snippet was selected, go back
+      if (selectedSnippet?.id === snippetId) {
         setSelectedSnippet(null)
         // Clear snippet from URL
         const url = new URL(window.location)
@@ -337,11 +371,22 @@ function App() {
     const totalPages = Math.ceil(filteredSnippets.length / itemsPerPage)
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1)
+      try {
+        localStorage.setItem('templio_currentPage', '1')
+      } catch (e) {
+        // Ignore errors
+      }
     }
   }, [filteredSnippets.length, currentPage, filter])
 
   const handlePageChange = (page) => {
     setCurrentPage(page)
+    // Save current page to localStorage
+    try {
+      localStorage.setItem('templio_currentPage', page.toString())
+    } catch (e) {
+      // Ignore errors
+    }
     // Scroll to top when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -425,12 +470,24 @@ function App() {
 
   if (selectedSnippet) {
     return (
-      <SnippetDetail
-        snippet={selectedSnippet}
-        onBack={handleBack}
-        onDelete={handleDeleteSnippet}
-        onUpdate={handleUpdateSnippet}
-      />
+      <>
+        <SnippetDetail
+          snippet={selectedSnippet}
+          onBack={handleBack}
+          onDelete={() => handleDeleteClick(selectedSnippet.id, selectedSnippet.title)}
+          onUpdate={handleUpdateSnippet}
+        />
+        <ConfirmDialog
+          isOpen={deleteConfirm.isOpen && deleteConfirm.snippetId === selectedSnippet.id}
+          title="Delete Template"
+          message={`Are you sure you want to delete "${deleteConfirm.snippetTitle || 'this template'}"? This action cannot be undone.`}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteConfirm({ isOpen: false, snippetId: null, snippetTitle: null })}
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+        />
+      </>
     )
   }
 
@@ -495,8 +552,15 @@ function App() {
                   className="filter-select"
                   value={filter}
                   onChange={(e) => {
-                    setFilter(e.target.value)
+                    const newFilter = e.target.value
+                    setFilter(newFilter)
                     setCurrentPage(1)
+                    // Save filter to localStorage
+                    try {
+                      localStorage.setItem('templio_filter', newFilter)
+                    } catch (e) {
+                      // Ignore errors
+                    }
                   }}
                 >
                   <option value="newest">Newest First</option>
@@ -522,7 +586,7 @@ function App() {
                     key={snippet.id}
                     snippet={snippet}
                     onView={handleViewSnippet}
-                    onDelete={handleDeleteSnippet}
+                    onDelete={() => handleDeleteClick(snippet.id, snippet.title)}
                     onToggleFavorite={handleToggleFavorite}
                     isDeleting={deletingSnippetId === snippet.id}
                     isTogglingFavorite={togglingFavoriteId === snippet.id}
@@ -584,6 +648,17 @@ function App() {
           </>
         )}
       </main>
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen && !selectedSnippet}
+        title="Delete Template"
+        message={`Are you sure you want to delete "${deleteConfirm.snippetTitle || 'this template'}"? This action cannot be undone.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteConfirm({ isOpen: false, snippetId: null, snippetTitle: null })}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   )
 }
