@@ -17,13 +17,15 @@
   align-items: center;
   gap: 3rem;
   position: relative;
-  z-index: 1;
+  z-index: 50;
 }
 
 .auth-logo {
   display: flex;
   justify-content: center;
   margin-bottom: 1rem;
+  position: relative;
+  z-index: 51;
 }
 
 .auth-container {

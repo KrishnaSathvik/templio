@@ -113,6 +113,8 @@ ${html}
 
   // Sync gutter scroll with editor scroll
   useEffect(() => {
+    if (view !== 'code') return // Only sync in code view
+    
     const editorWrapper = editorWrapperRef.current
     const gutter = gutterRef.current
     if (!editorWrapper || !gutter) return
@@ -120,13 +122,59 @@ ${html}
     const codeContent = editorWrapper.querySelector('.code-editor-content')
     if (!codeContent) return
 
-    const handleScroll = () => {
-      gutter.scrollTop = codeContent.scrollTop
+    // Find the actual scrollable element (could be codeContent or its child)
+    let scrollableElement = codeContent
+    
+    // Check if codeContent itself is scrollable
+    if (codeContent.scrollHeight <= codeContent.clientHeight) {
+      // If not scrollable, check for pre element
+      const codePre = codeContent.querySelector('.code-editor-pre')
+      if (codePre && codePre.scrollHeight > codePre.clientHeight) {
+        scrollableElement = codePre
+      }
     }
 
-    codeContent.addEventListener('scroll', handleScroll)
-    return () => codeContent.removeEventListener('scroll', handleScroll)
-  }, [snippet.htmlCode])
+    const handleScroll = () => {
+      if (gutter.scrollTop !== scrollableElement.scrollTop) {
+        gutter.scrollTop = scrollableElement.scrollTop
+      }
+    }
+
+    // Sync on mount and when content changes
+    const syncScroll = () => {
+      gutter.scrollTop = scrollableElement.scrollTop
+    }
+    
+    // Use requestAnimationFrame for smooth syncing
+    let rafId = null
+    const handleScrollRAF = () => {
+      if (rafId) return
+      rafId = requestAnimationFrame(() => {
+        handleScroll()
+        rafId = null
+      })
+    }
+
+    // Initial sync
+    setTimeout(syncScroll, 0)
+
+    scrollableElement.addEventListener('scroll', handleScrollRAF, { passive: true })
+    
+    // Also sync when gutter is scrolled manually
+    const handleGutterScroll = () => {
+      if (scrollableElement.scrollTop !== gutter.scrollTop) {
+        scrollableElement.scrollTop = gutter.scrollTop
+      }
+    }
+    
+    gutter.addEventListener('scroll', handleGutterScroll, { passive: true })
+    
+    return () => {
+      scrollableElement.removeEventListener('scroll', handleScrollRAF)
+      gutter.removeEventListener('scroll', handleGutterScroll)
+      if (rafId) cancelAnimationFrame(rafId)
+    }
+  }, [snippet.htmlCode, view])
 
   const handleCopy = async () => {
     try {

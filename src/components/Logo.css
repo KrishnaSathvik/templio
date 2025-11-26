@@ -3,6 +3,11 @@
   align-items: center;
   cursor: pointer;
   transition: transform 0.3s ease;
+  position: relative;
+  z-index: 52;
+  filter: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .logo-container:hover {
@@ -23,6 +28,10 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   display: inline-block;
+  filter: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .logo-container:hover .logo-templio {
