@@ -31,6 +31,20 @@
   min-width: 0;
 }
 
+.shared-preview-banner {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0.55rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 .title-display-container {
   display: flex;
   align-items: center;
@@ -89,6 +103,36 @@
   word-break: break-word;
 }
 
+.detail-share-url {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.detail-share-url code {
+  color: var(--text);
+}
+
+.detail-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.detail-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.74rem;
+  color: var(--text);
+}
+
+.detail-chip.muted {
+  color: var(--muted);
+}
+
 .detail-actions {
   display: flex;
   gap: 0.75rem;
@@ -134,6 +178,20 @@
   flex-direction: column;
   /* Ensure iframe content can render scaled/transformed elements correctly */
   contain: layout style;
+}
+
+.preview-safety-note {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 11;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: #f1f5f9;
+  max-width: min(92%, 480px);
 }
 
 .preview-loading {
@@ -818,11 +876,10 @@
   background: transparent !important;
   position: relative !important;
   word-wrap: normal !important;
-  color: var(--text) !important;
-}
   overflow-wrap: normal !important;
   tab-size: 2 !important;
   -moz-tab-size: 2 !important;
+  color: var(--text) !important;
 }
 
 .preview-wrapper.code-visible .preview-panel {
@@ -851,6 +908,11 @@
 
   .title-input {
     font-size: 1.5rem;
+  }
+
+  .shared-preview-banner {
+    font-size: 0.72rem;
+    margin-bottom: 0.45rem;
   }
 
   .detail-actions {
@@ -1017,4 +1079,3 @@
 .code-editor::-webkit-scrollbar-thumb:hover {
   background: #4e4e4e;
 }
-

@@ -78,7 +78,7 @@ export function validateAndSanitizeHTML(html) {
     SAFE_FOR_TEMPLATES: false,
     // Don't remove style tags
     FORBID_TAGS: ['script', 'iframe', 'object', 'embed'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+    FORBID_ATTR: [/^on/i, 'onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
   })
 
   return {
@@ -160,4 +160,3 @@ export function validateHTMLSize(html) {
 
   return { valid: true }
 }
-

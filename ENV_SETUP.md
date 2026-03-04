@@ -13,6 +13,16 @@ Create a `.env` file in the project root with the following variables:
 
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Server-side AI Assist (secure; do NOT prefix with VITE_)
+OPENAI_API_KEY=your-openai-key-here
+OPENAI_MODEL=gpt-4.1-mini
+
+# Optional: override AI endpoint in frontend (default: /api/ai-suggest)
+VITE_AI_ASSIST_ENDPOINT=/api/ai-suggest
+
+# Optional: used by `pnpm migrate`
+DATABASE_URL=postgresql://...
 ```
 
 ## How to Get Your Supabase Credentials
@@ -30,6 +40,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 - Never share your Supabase keys publicly
 - Restart your development server after creating or updating the `.env` file
 - For production, set these variables in your hosting platform's environment variable settings
+- Keep `OPENAI_API_KEY` as a server-only secret (never expose in browser code)
 
 ## Troubleshooting
 
@@ -37,4 +48,3 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 - Make sure your `.env` file exists in the project root
 - Verify the variable names are exactly `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
 - Restart the dev server after creating/updating `.env`
-

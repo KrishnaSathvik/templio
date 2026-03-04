@@ -30,6 +30,9 @@ CREATE TABLE snippets (
   description TEXT,
   html_code TEXT NOT NULL,
   screenshot TEXT,
+  is_favorite BOOLEAN DEFAULT false,
+  collection TEXT,
+  tags TEXT[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -61,18 +64,107 @@ CREATE POLICY "Users can delete own snippets"
 CREATE INDEX idx_snippets_user_id ON snippets(user_id);
 CREATE INDEX idx_snippets_created_at ON snippets(created_at);
 CREATE INDEX idx_snippets_is_favorite ON snippets(is_favorite) WHERE is_favorite = true;
+CREATE INDEX idx_snippets_collection ON snippets(collection);
+CREATE INDEX idx_snippets_tags_gin ON snippets USING GIN(tags);
+
+-- Optional: shareable public links table (read-only snippet snapshots)
+CREATE TABLE public_shares (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  snippet_id BIGINT NOT NULL REFERENCES snippets(id) ON DELETE CASCADE,
+  share_token TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  description TEXT,
+  html_code TEXT NOT NULL,
+  screenshot TEXT,
+  tags TEXT[] DEFAULT '{}',
+  collection TEXT,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (snippet_id, user_id)
+);
+
+ALTER TABLE public_shares ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated owner policies for share management
+CREATE POLICY "Users manage own shares"
+  ON public_shares FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Public read-only policy by token (for shared URLs)
+CREATE POLICY "Public can read shares"
+  ON public_shares FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+CREATE INDEX idx_public_shares_token ON public_shares(share_token);
+CREATE INDEX idx_public_shares_snippet ON public_shares(snippet_id);
 ```
 
-## Step 3.5: Add Favorite Field (Migration)
+## Step 3.5: Migration For Existing Projects
 
-If you already have the snippets table, run this migration to add the favorite feature:
+If you already have the snippets table, run this migration:
 
 ```sql
 -- Add is_favorite column
 ALTER TABLE snippets ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT false;
+ALTER TABLE snippets ADD COLUMN IF NOT EXISTS collection TEXT;
+ALTER TABLE snippets ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
 
--- Create index for faster favorite queries
+-- Add indexes for faster filtering
 CREATE INDEX IF NOT EXISTS idx_snippets_is_favorite ON snippets(is_favorite) WHERE is_favorite = true;
+CREATE INDEX IF NOT EXISTS idx_snippets_collection ON snippets(collection);
+CREATE INDEX IF NOT EXISTS idx_snippets_tags_gin ON snippets USING GIN(tags);
+
+-- Create public_shares table if missing
+CREATE TABLE IF NOT EXISTS public_shares (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  snippet_id BIGINT NOT NULL REFERENCES snippets(id) ON DELETE CASCADE,
+  share_token TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  description TEXT,
+  html_code TEXT NOT NULL,
+  screenshot TEXT,
+  tags TEXT[] DEFAULT '{}',
+  collection TEXT,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (snippet_id, user_id)
+);
+
+ALTER TABLE public_shares ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_shares'
+      AND policyname = 'Users manage own shares'
+  ) THEN
+    CREATE POLICY "Users manage own shares"
+      ON public_shares FOR ALL
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'public_shares'
+      AND policyname = 'Public can read shares'
+  ) THEN
+    CREATE POLICY "Public can read shares"
+      ON public_shares FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+END $$;
 ```
 
 ## Step 4: Configure Environment Variables
@@ -91,6 +183,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ```bash
 pnpm install
+pnpm migrate
 pnpm dev
 ```
 
@@ -116,4 +209,3 @@ Now your app will:
 - Check browser console for errors
 - Verify your Supabase project is active
 - Make sure RLS policies are set up correctly
-

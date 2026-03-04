@@ -164,6 +164,28 @@
   font-weight: 300;
 }
 
+.card-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip-collection {
+  color: var(--text);
+}
+
 .card-footer {
   display: flex;
   justify-content: space-between;
@@ -225,4 +247,3 @@
     font-size: 1.1rem;
   }
 }
-

@@ -14,6 +14,10 @@ A modern, production-ready web application for saving and previewing HTML templa
 ### Core Features
 - 📝 **Save HTML Templates**: Add HTML code with title and description
 - 🖼️ **Automatic Screenshots**: Automatically generates screenshots of your HTML templates
+- 🔎 **Global Search**: Search templates by title, description, and HTML content
+- 🏷️ **Tags & Collections**: Organize and filter templates by tags and collections
+- 🔗 **Shareable Read-Only Links**: Create public read-only links for individual templates
+- 📊 **Snippet Analytics**: Track views/copies/shares and activity summary
 - 🎴 **Beautiful Card View**: Card-based display with screenshot previews
 - 👁️ **Live Preview**: View code and live preview in full-screen mode
 - ⭐ **Favorites**: Mark templates as favorites for quick access
@@ -34,8 +38,10 @@ A modern, production-ready web application for saving and previewing HTML templa
 ### Security & Production
 - 🔒 **HTTPS Enforcement**: Automatic HTTPS redirect in production
 - 🧹 **Input Sanitization**: XSS protection with DOMPurify
+- 🛡️ **Safe Preview Mode**: Sanitized preview by default with optional JS execution toggle
 - ✅ **Input Validation**: Comprehensive validation for all inputs
 - 🔐 **Secure Authentication**: Email/password authentication via Supabase
+- 🤖 **Server-Side AI Assist**: AI metadata suggestions via secure backend endpoint
 - ☁️ **Cloud Storage**: All data saved securely in Supabase
 - 🚫 **Production-Safe Logging**: No console.logs in production builds
 
@@ -73,15 +79,20 @@ A modern, production-ready web application for saving and previewing HTML templa
    
    Follow the instructions in [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) to:
    - Create a Supabase project
-   - Set up the database table
+   - Set up tables, policies, and indexes
    - Configure Row Level Security (RLS) policies
 
-5. **Start the development server**:
+5. **Run migrations (one command)**:
+   ```bash
+   pnpm migrate
+   ```
+
+6. **Start the development server**:
    ```bash
    pnpm dev
    ```
 
-6. **Open your browser**:
+7. **Open your browser**:
    Navigate to `http://localhost:5173`
 
 ## 📖 Usage
@@ -153,6 +164,7 @@ Make sure to set these in your hosting platform:
 
 ### Backend & Services
 - **Supabase** - Database, authentication, and cloud storage
+- **Vercel API Route** - Secure server endpoint for AI assist
 - **html2canvas** - Screenshot generation
 - **isomorphic-dompurify** - HTML sanitization
 

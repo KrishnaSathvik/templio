@@ -1,0 +1,65 @@
+.analytics-section {
+  margin: 1.25rem 0 2rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--panel);
+}
+
+.analytics-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  margin: 0 0 0.875rem;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 0.75rem;
+}
+
+.analytics-card {
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.analytics-card-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.analytics-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.analytics-card-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.analytics-card-value {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.analytics-highlight {
+  margin-top: 0.875rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+

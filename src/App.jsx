@@ -1,10 +1,23 @@
-import { useState, useEffect } from 'react'
-import { Plus, Grid, LogOut, User, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  Plus,
+  Grid,
+  LogOut,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Search,
+  Share2,
+} from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { snippetsService } from './services/snippetsService'
+import { shareService } from './services/shareService'
+import { analytics } from './utils/analytics'
 import AddSnippetForm from './components/AddSnippetForm'
 import SnippetCard from './components/SnippetCard'
 import SnippetDetail from './components/SnippetDetail'
+import MarketingLanding from './components/MarketingLanding'
 import Auth from './components/Auth'
 import Logo from './components/Logo'
 import GradientBlur from './components/GradientBlur'
@@ -14,54 +27,28 @@ import { useToast } from './contexts/ToastContext'
 import { logger } from './utils/logger'
 import './App.css'
 
+const ITEMS_PER_PAGE = 6
+
+const readSaved = (key, fallback = '') => {
+  try {
+    return localStorage.getItem(key) || fallback
+  } catch {
+    return fallback
+  }
+}
+
+const readUrlState = () => {
+  const params = new URLSearchParams(window.location.search)
+  return {
+    snippetId: params.get('snippet'),
+    shareToken: params.get('share'),
+  }
+}
+
 function App() {
   const toast = useToast()
-  
-  // Load snippets from cache on mount to prevent flash of empty state
-  const loadCachedSnippets = () => {
-    try {
-      const cached = localStorage.getItem('snippets_cache')
-      if (cached) {
-        const parsed = JSON.parse(cached)
-        // Only use cache if it's less than 5 minutes old
-        if (parsed.timestamp && Date.now() - parsed.timestamp < 5 * 60 * 1000) {
-          return parsed.data || []
-        }
-      }
-    } catch (e) {
-      // Ignore cache errors
-    }
-    return []
-  }
-
-  // Load filter from localStorage
-  const loadFilter = () => {
-    try {
-      const saved = localStorage.getItem('templio_filter')
-      if (saved && ['newest', 'oldest', 'favorites'].includes(saved)) {
-        return saved
-      }
-    } catch (e) {
-      // Ignore errors
-    }
-    return 'newest'
-  }
-
-  // Load current page from localStorage
-  const loadCurrentPage = () => {
-    try {
-      const saved = localStorage.getItem('templio_currentPage')
-      if (saved) {
-        const page = parseInt(saved, 10)
-        if (page > 0) return page
-      }
-    } catch (e) {
-      // Ignore errors
-    }
-    return 1
-  }
-
-  const [snippets, setSnippets] = useState(loadCachedSnippets())
+  const [snippets, setSnippets] = useState([])
+  const [totalCount, setTotalCount] = useState(0)
   const [showForm, setShowForm] = useState(false)
   const [selectedSnippet, setSelectedSnippet] = useState(null)
   const [user, setUser] = useState(null)
@@ -71,132 +58,99 @@ function App() {
   const [updatingSnippetId, setUpdatingSnippetId] = useState(null)
   const [togglingFavoriteId, setTogglingFavoriteId] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
-  const [currentPage, setCurrentPage] = useState(loadCurrentPage())
-  const [filter, setFilter] = useState(loadFilter()) // 'newest', 'oldest', 'favorites'
-  const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, snippetId: null, snippetTitle: null })
-  const itemsPerPage = 6
+  const [currentPage, setCurrentPage] = useState(Number(readSaved('templio_currentPage', '1')) || 1)
+  const [filter, setFilter] = useState(readSaved('templio_filter', 'newest'))
+  const [searchInput, setSearchInput] = useState(readSaved('templio_search', ''))
+  const [debouncedSearch, setDebouncedSearch] = useState(readSaved('templio_search', ''))
+  const [selectedCollection, setSelectedCollection] = useState(readSaved('templio_collection', ''))
+  const [selectedTag, setSelectedTag] = useState(readSaved('templio_tag', ''))
+  const [metadata, setMetadata] = useState({ collections: [], tags: [] })
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    snippetId: null,
+    snippetTitle: null,
+  })
+  const [urlState, setUrlState] = useState(readUrlState())
+  const [sharedSnippet, setSharedSnippet] = useState(null)
+  const [loadingSharedSnippet, setLoadingSharedSnippet] = useState(false)
+  const [sharedSnippetError, setSharedSnippetError] = useState('')
+  const [shareUrl, setShareUrl] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
 
-  // Restore selected snippet from URL when snippets are loaded
   useEffect(() => {
-    if (snippets.length === 0) return
-
-    const params = new URLSearchParams(window.location.search)
-    const snippetId = params.get('snippet')
-    
-    if (snippetId) {
-      const snippet = snippets.find(s => s.id === snippetId)
-      if (snippet) {
-        // Only update if different to avoid unnecessary re-renders
-        setSelectedSnippet(prev => {
-          if (prev?.id === snippetId) return prev
-          return snippet
-        })
-      } else {
-        // Snippet not found, clear from URL
-        const url = new URL(window.location)
-        url.searchParams.delete('snippet')
-        url.searchParams.delete('view')
-        window.history.replaceState({}, '', url)
-        setSelectedSnippet(null)
-      }
-    }
-  }, [snippets])
-
-  // Handle browser back/forward buttons
-  useEffect(() => {
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search)
-      const snippetId = params.get('snippet')
-      
-      if (snippetId && snippets.length > 0) {
-        const snippet = snippets.find(s => s.id === snippetId)
-        if (snippet) {
-          setSelectedSnippet(snippet)
-        } else {
-          setSelectedSnippet(null)
-        }
-      } else {
-        setSelectedSnippet(null)
-      }
-    }
-
+    const handlePopState = () => setUrlState(readUrlState())
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [snippets])
+  }, [])
+
+  const mutateUrl = useCallback((mutate, { replace = false } = {}) => {
+    const url = new URL(window.location)
+    mutate(url.searchParams)
+    if (replace) {
+      window.history.replaceState({}, '', url)
+    } else {
+      window.history.pushState({}, '', url)
+    }
+    setUrlState(readUrlState())
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim())
+      setCurrentPage(1)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  useEffect(() => {
+    localStorage.setItem('templio_filter', filter)
+    localStorage.setItem('templio_currentPage', String(currentPage))
+    localStorage.setItem('templio_search', searchInput)
+    localStorage.setItem('templio_collection', selectedCollection)
+    localStorage.setItem('templio_tag', selectedTag)
+  }, [filter, currentPage, searchInput, selectedCollection, selectedTag])
 
   useEffect(() => {
     let mounted = true
 
-    // Clear any URL hash fragments that might contain expired tokens
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash
-      // Check if hash contains auth tokens
       if (hash.includes('access_token') || hash.includes('refresh_token')) {
-        // Clear the hash to prevent using expired URL sessions
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
       }
     }
 
-    // Listen for auth changes - this handles session restoration automatically
-    // The INITIAL_SESSION event fires when Supabase restores the session from storage
-    // This is the recommended way to handle session persistence
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      logger.log('Auth state changed:', event, session?.user?.email || 'no user')
-      
       if (!mounted) return
-      
-      // Handle initial session restoration - this is the key event on page load
+      logger.log('Auth state changed:', event, session?.user?.email || 'no user')
+
       if (event === 'INITIAL_SESSION') {
         setLoading(false)
-        if (session?.user) {
-          setUser(session.user)
-          loadSnippets()
-        } else {
-          setUser(null)
-        }
+        setUser(session?.user || null)
         return
       }
-      
-      // Handle sign in
+
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // Clear URL hash after successful sign in
         if (typeof window !== 'undefined' && window.location.hash) {
           window.history.replaceState(null, '', window.location.pathname + window.location.search)
         }
-        if (session?.user) {
-          setUser(session.user)
-          loadSnippets()
-        }
+        setUser(session?.user || null)
         setLoading(false)
         return
       }
-      
-      // Handle sign out
+
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setSnippets([])
+        setSelectedSnippet(null)
+        setTotalCount(0)
         setLoading(false)
-        // Clear cache on logout
-        try {
-          localStorage.removeItem('snippets_cache')
-        } catch (e) {
-          // Ignore
-        }
         return
       }
-      
-      // Handle other events
-      if (session?.user) {
-        setUser(session.user)
-        if (event === 'USER_UPDATED') {
-          loadSnippets()
-        }
-      } else {
-        setUser(null)
-        setSnippets([])
-      }
+
+      setUser(session?.user || null)
       setLoading(false)
     })
 
@@ -206,40 +160,170 @@ function App() {
     }
   }, [])
 
-  const loadSnippets = async () => {
-    try {
-      setLoadingSnippets(true)
-      const data = await snippetsService.getAll()
-      setSnippets(data)
-      // Cache snippets for faster loading on refresh
+  const loadSnippets = useCallback(
+    async ({ pageOverride } = {}) => {
+      if (!user) return
       try {
-        localStorage.setItem('snippets_cache', JSON.stringify({
-          data,
-          timestamp: Date.now()
-        }))
-      } catch (e) {
-        // Ignore cache errors
+        setLoadingSnippets(true)
+        const page = pageOverride ?? currentPage
+        const sort = filter === 'oldest' ? 'oldest' : 'newest'
+        const favoritesOnly = filter === 'favorites'
+        const { data, totalCount: count } = await snippetsService.getPage({
+          page,
+          pageSize: ITEMS_PER_PAGE,
+          sort,
+          favoritesOnly,
+          search: debouncedSearch,
+          collection: selectedCollection,
+          tag: selectedTag,
+        })
+        setSnippets(data)
+        setTotalCount(count)
+      } catch (error) {
+        logger.error('Error loading snippets:', error)
+        toast.error('Failed to load templates. Please try again.', {
+          title: 'Loading Error',
+        })
+      } finally {
+        setLoadingSnippets(false)
       }
+    },
+    [user, currentPage, filter, debouncedSearch, selectedCollection, selectedTag, toast]
+  )
+
+  const loadMetadataAndCounts = useCallback(async () => {
+    if (!user) return
+    try {
+      const nextMetadata = await snippetsService.getFilterMetadata()
+      setMetadata(nextMetadata)
     } catch (error) {
-      logger.error('Error loading snippets:', error)
-      toast.error('Failed to load templates. Please try again.', {
-        title: 'Loading Error',
-      })
-    } finally {
-      setLoadingSnippets(false)
+      logger.error('Error loading metadata/counts:', error)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (!user || urlState.shareToken) return
+    loadSnippets()
+  }, [user, urlState.shareToken, loadSnippets])
+
+  useEffect(() => {
+    if (!user || urlState.shareToken) return
+    loadMetadataAndCounts()
+  }, [user, urlState.shareToken, loadMetadataAndCounts])
+
+  useEffect(() => {
+    const totalPages = Math.max(Math.ceil(totalCount / ITEMS_PER_PAGE), 1)
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalCount])
+
+  useEffect(() => {
+    if (!user || urlState.shareToken) return
+
+    if (!urlState.snippetId) {
+      setSelectedSnippet(null)
+      return
+    }
+
+    const fromCurrentPage = snippets.find((snippet) => snippet.id === urlState.snippetId)
+    if (fromCurrentPage) {
+      setSelectedSnippet(fromCurrentPage)
+      return
+    }
+
+    let cancelled = false
+    snippetsService.getById(urlState.snippetId).then((snippet) => {
+      if (cancelled) return
+      if (snippet) {
+        setSelectedSnippet(snippet)
+      } else {
+        mutateUrl((params) => {
+          params.delete('snippet')
+          params.delete('view')
+        }, { replace: true })
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, snippets, urlState.snippetId, urlState.shareToken, mutateUrl])
+
+  useEffect(() => {
+    if (!urlState.shareToken) {
+      setSharedSnippet(null)
+      setSharedSnippetError('')
+      setLoadingSharedSnippet(false)
+      return
+    }
+
+    let cancelled = false
+    setLoadingSharedSnippet(true)
+    setSharedSnippetError('')
+
+    shareService
+      .getSharedSnippetByToken(urlState.shareToken)
+      .then((snippet) => {
+        if (cancelled) return
+        if (!snippet) {
+          setSharedSnippet(null)
+          setSharedSnippetError('This shared link is invalid or expired.')
+          return
+        }
+        setSharedSnippet(snippet)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        logger.error('Error loading shared snippet:', error)
+        setSharedSnippet(null)
+        setSharedSnippetError(error.message || 'Failed to load shared template.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSharedSnippet(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [urlState.shareToken])
+
+  useEffect(() => {
+    if (!selectedSnippet || urlState.shareToken) {
+      setShareUrl('')
+      return
+    }
+
+    let cancelled = false
+
+    shareService
+      .getShareBySnippetId(selectedSnippet.id)
+      .then((existingShare) => {
+        if (cancelled || !existingShare?.token) return
+        const url = new URL(window.location.origin + window.location.pathname)
+        url.searchParams.set('share', existingShare.token)
+        setShareUrl(url.toString())
+      })
+      .catch((error) => {
+        if (cancelled) return
+        logger.warn('Share lookup skipped:', error.message)
+        setShareUrl('')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedSnippet, urlState.shareToken])
 
   const handleAuthSuccess = () => {
     setShowAuth(false)
     loadSnippets()
+    loadMetadataAndCounts()
   }
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
-      setSnippets([])
-      setSelectedSnippet(null)
       toast.success('Signed out successfully')
     } catch (error) {
       logger.error('Error signing out:', error)
@@ -247,32 +331,56 @@ function App() {
     }
   }
 
+  const reloadAll = async ({ pageOverride } = {}) => {
+    await Promise.all([loadSnippets({ pageOverride }), loadMetadataAndCounts()])
+  }
+
   const handleAddSnippet = async (snippet) => {
     try {
-      const newSnippet = await snippetsService.create(snippet)
-      const updated = [newSnippet, ...snippets]
-      setSnippets(updated)
-      // Update cache
-      try {
-        localStorage.setItem('snippets_cache', JSON.stringify({
-          data: updated,
-          timestamp: Date.now()
-        }))
-      } catch (e) {
-        // Ignore cache errors
-      }
+      await snippetsService.create(snippet)
       setShowForm(false)
-      toast.success('Template saved successfully!', {
-        title: 'Success',
-      })
+      setCurrentPage(1)
+      await reloadAll({ pageOverride: 1 })
+      toast.success('Template saved successfully!', { title: 'Success' })
     } catch (error) {
       logger.error('Error adding snippet:', error)
-      toast.error(
-        error.message || 'Failed to save template. Please try again.',
-        {
-          title: 'Save Error',
-        }
-      )
+      toast.error(error.message || 'Failed to save template. Please try again.', {
+        title: 'Save Error',
+      })
+    }
+  }
+
+  const handleBatchAddSnippets = async (snippetsBatch) => {
+    if (!Array.isArray(snippetsBatch) || snippetsBatch.length === 0) {
+      return { createdCount: 0, failedCount: 0, failed: [] }
+    }
+
+    let createdCount = 0
+    const failed = []
+
+    for (const snippet of snippetsBatch) {
+      try {
+        await snippetsService.create(snippet)
+        createdCount += 1
+      } catch (error) {
+        logger.error('Error importing snippet in batch:', error)
+        failed.push({
+          title: snippet.title,
+          error: error.message || 'Failed to save snippet',
+        })
+      }
+    }
+
+    if (createdCount > 0) {
+      setCurrentPage(1)
+      await reloadAll({ pageOverride: 1 })
+      setShowForm(false)
+    }
+
+    return {
+      createdCount,
+      failedCount: failed.length,
+      failed,
     }
   }
 
@@ -286,28 +394,17 @@ function App() {
 
     setDeleteConfirm({ isOpen: false, snippetId: null, snippetTitle: null })
     setDeletingSnippetId(snippetId)
+
     try {
       await snippetsService.delete(snippetId)
-      const updated = snippets.filter((s) => s.id !== snippetId)
-      setSnippets(updated)
-      // Update cache
-      try {
-        localStorage.setItem('snippets_cache', JSON.stringify({
-          data: updated,
-          timestamp: Date.now()
-        }))
-      } catch (e) {
-        // Ignore cache errors
-      }
-      // If deleted snippet was selected, go back
       if (selectedSnippet?.id === snippetId) {
+        mutateUrl((params) => {
+          params.delete('snippet')
+          params.delete('view')
+        })
         setSelectedSnippet(null)
-        // Clear snippet from URL
-        const url = new URL(window.location)
-        url.searchParams.delete('snippet')
-        url.searchParams.delete('view')
-        window.history.replaceState({}, '', url)
       }
+      await reloadAll()
       toast.success('Template deleted successfully')
     } catch (error) {
       logger.error('Error deleting snippet:', error)
@@ -320,103 +417,34 @@ function App() {
   }
 
   const handleViewSnippet = (snippet) => {
+    analytics.trackView(snippet.id)
     setSelectedSnippet(snippet)
-    // Update URL to persist the selected snippet, default to preview view
-    const url = new URL(window.location)
-    url.searchParams.set('snippet', snippet.id)
-    url.searchParams.set('view', 'preview') // Always start with preview when clicking a template
-    window.history.pushState({}, '', url)
+    mutateUrl((params) => {
+      params.set('snippet', snippet.id)
+      params.set('view', 'preview')
+      params.delete('share')
+    })
   }
 
   const handleBack = () => {
     setSelectedSnippet(null)
-    // Clear snippet from URL
-    const url = new URL(window.location)
-    url.searchParams.delete('snippet')
-    window.history.pushState({}, '', url)
-  }
-
-  // Filter and sort snippets
-  const getFilteredAndSortedSnippets = () => {
-    let filtered = [...snippets]
-
-    // Apply filter
-    if (filter === 'favorites') {
-      filtered = filtered.filter((s) => s.isFavorite)
-    }
-
-    // Apply sorting
-    if (filter === 'newest') {
-      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    } else if (filter === 'oldest') {
-      filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-    } else if (filter === 'favorites') {
-      // For favorites, show newest first
-      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    }
-
-    return filtered
-  }
-
-  const filteredSnippets = getFilteredAndSortedSnippets()
-
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredSnippets.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentSnippets = filteredSnippets.slice(startIndex, endIndex)
-
-  // Reset to page 1 when snippets or filter change
-  useEffect(() => {
-    const totalPages = Math.ceil(filteredSnippets.length / itemsPerPage)
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1)
-      try {
-        localStorage.setItem('templio_currentPage', '1')
-      } catch (e) {
-        // Ignore errors
-      }
-    }
-  }, [filteredSnippets.length, currentPage, filter])
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page)
-    // Save current page to localStorage
-    try {
-      localStorage.setItem('templio_currentPage', page.toString())
-    } catch (e) {
-      // Ignore errors
-    }
-    // Scroll to top when page changes
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    mutateUrl((params) => {
+      params.delete('snippet')
+      params.delete('view')
+    })
   }
 
   const handleUpdateSnippet = async (updatedSnippet) => {
     setUpdatingSnippetId(updatedSnippet.id)
     try {
       const saved = await snippetsService.update(updatedSnippet)
-      const updated = snippets.map((s) => (s.id === saved.id ? saved : s))
-      setSnippets(updated)
-      // Update cache
-      try {
-        localStorage.setItem('snippets_cache', JSON.stringify({
-          data: updated,
-          timestamp: Date.now()
-        }))
-      } catch (e) {
-        // Ignore cache errors
-      }
       setSelectedSnippet(saved)
-      // Ensure URL is updated with snippet ID
-      const url = new URL(window.location)
-      url.searchParams.set('snippet', saved.id)
-      window.history.replaceState({}, '', url)
+      setSnippets((prev) => prev.map((snippet) => (snippet.id === saved.id ? saved : snippet)))
+      await reloadAll()
       toast.success('Template updated successfully!')
     } catch (error) {
       logger.error('Error updating snippet:', error)
-      toast.error('Failed to update template. Please try again.', {
-        title: 'Update Error',
-      })
+      toast.error('Failed to update template. Please try again.', { title: 'Update Error' })
     } finally {
       setUpdatingSnippetId(null)
     }
@@ -426,31 +454,103 @@ function App() {
     setTogglingFavoriteId(id)
     try {
       const updated = await snippetsService.toggleFavorite(id, isFavorite)
-      const newSnippets = snippets.map((s) => (s.id === id ? updated : s))
-      setSnippets(newSnippets)
-      // Update cache
-      try {
-        localStorage.setItem('snippets_cache', JSON.stringify({
-          data: newSnippets,
-          timestamp: Date.now()
-        }))
-      } catch (e) {
-        // Ignore cache errors
-      }
-      // Update selected snippet if it's the one being favorited
+      setSnippets((prev) => prev.map((snippet) => (snippet.id === id ? updated : snippet)))
       if (selectedSnippet?.id === id) {
         setSelectedSnippet(updated)
       }
-      toast.success(
-        isFavorite ? 'Added to favorites' : 'Removed from favorites',
-        { duration: 2000 }
-      )
+      await loadMetadataAndCounts()
+      if (filter === 'favorites') {
+        await loadSnippets()
+      }
+      toast.success(isFavorite ? 'Added to favorites' : 'Removed from favorites', { duration: 1800 })
     } catch (error) {
       logger.error('Error toggling favorite:', error)
       toast.error('Failed to update favorite status. Please try again.')
     } finally {
       setTogglingFavoriteId(null)
     }
+  }
+
+  const handleCreateShare = async () => {
+    if (!selectedSnippet) return
+    setShareLoading(true)
+    try {
+      const share = await shareService.createOrUpdateShare(selectedSnippet)
+      const url = new URL(window.location.origin + window.location.pathname)
+      url.searchParams.set('share', share.token)
+      const link = url.toString()
+      setShareUrl(link)
+      analytics.trackShare(selectedSnippet.id)
+      await navigator.clipboard.writeText(link)
+      toast.success('Share link created and copied.')
+    } catch (error) {
+      logger.error('Failed to create share link:', error)
+      toast.error(error.message || 'Failed to create share link.')
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  const handleRevokeShare = async () => {
+    if (!selectedSnippet) return
+    setShareLoading(true)
+    try {
+      await shareService.revokeShare(selectedSnippet.id)
+      setShareUrl('')
+      toast.success('Share link revoked.')
+    } catch (error) {
+      logger.error('Failed to revoke share link:', error)
+      toast.error(error.message || 'Failed to revoke share link.')
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  const clearShareUrlState = () => {
+    mutateUrl((params) => {
+      params.delete('share')
+    })
+  }
+
+  const totalPages = Math.max(Math.ceil(totalCount / ITEMS_PER_PAGE), 1)
+
+  if (urlState.shareToken) {
+    if (loadingSharedSnippet) {
+      return (
+        <div className="app">
+          <div className="loading-state">
+            <div className="spinner-large"></div>
+            <p>Loading shared template...</p>
+          </div>
+        </div>
+      )
+    }
+
+    if (!sharedSnippet) {
+      return (
+        <div className="app">
+          <div className="empty-state">
+            <Share2 size={56} />
+            <h2>Shared Link Unavailable</h2>
+            <p>{sharedSnippetError || 'This shared template could not be loaded.'}</p>
+            <button className="btn btn-primary" onClick={clearShareUrlState}>
+              Back to App
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <SnippetDetail
+        snippet={sharedSnippet}
+        onBack={clearShareUrlState}
+        readOnly
+        sharedPreview
+        onCopySnippet={(id) => analytics.trackCopy(id)}
+        onTrackView={(id) => analytics.trackView(id)}
+      />
+    )
   }
 
   if (loading) {
@@ -464,8 +564,12 @@ function App() {
     )
   }
 
-  if (!user || showAuth) {
-    return <Auth onAuthSuccess={handleAuthSuccess} />
+  if (!user && showAuth) {
+    return <Auth onAuthSuccess={handleAuthSuccess} onBack={() => setShowAuth(false)} />
+  }
+
+  if (!user) {
+    return <MarketingLanding onGetStarted={() => setShowAuth(true)} />
   }
 
   if (selectedSnippet) {
@@ -476,6 +580,12 @@ function App() {
           onBack={handleBack}
           onDelete={() => handleDeleteClick(selectedSnippet.id, selectedSnippet.title)}
           onUpdate={handleUpdateSnippet}
+          onCopySnippet={(id) => analytics.trackCopy(id)}
+          onTrackView={(id) => analytics.trackView(id)}
+          onCreateShare={handleCreateShare}
+          onRevokeShare={handleRevokeShare}
+          shareUrl={shareUrl}
+          shareLoading={shareLoading || updatingSnippetId === selectedSnippet.id}
         />
         <ConfirmDialog
           isOpen={deleteConfirm.isOpen && deleteConfirm.snippetId === selectedSnippet.id}
@@ -505,18 +615,11 @@ function App() {
               <User size={18} />
               <span className="user-email">{user.email}</span>
             </div>
-            <button
-              className="btn btn-primary"
-              onClick={() => setShowForm(!showForm)}
-            >
+            <button className="btn btn-primary" onClick={() => setShowForm((prev) => !prev)}>
               <Plus size={20} />
               <span>Add Template</span>
             </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handleLogout}
-              title="Sign Out"
-            >
+            <button className="btn btn-secondary" onClick={handleLogout} title="Sign Out">
               <LogOut size={18} />
               <span className="logout-text">Sign Out</span>
             </button>
@@ -528,9 +631,80 @@ function App() {
         {showForm && (
           <AddSnippetForm
             onSubmit={handleAddSnippet}
+            onBatchSubmit={handleBatchAddSnippets}
             onCancel={() => setShowForm(false)}
           />
         )}
+
+        <div className="filters-container">
+          <div className="filter-group search-group">
+            <Search size={18} />
+            <input
+              type="search"
+              className="search-input"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search templates..."
+              aria-label="Search templates"
+            />
+          </div>
+
+          <div className="filter-group">
+            <Filter size={18} />
+            <select
+              className="filter-select"
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value)
+                setCurrentPage(1)
+              }}
+              aria-label="Sort and favorites filter"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="favorites">Favorites</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <select
+              className="filter-select"
+              value={selectedCollection}
+              onChange={(e) => {
+                setSelectedCollection(e.target.value)
+                setCurrentPage(1)
+              }}
+              aria-label="Filter by collection"
+            >
+              <option value="">All Collections</option>
+              {metadata.collections.map((collection) => (
+                <option key={collection} value={collection}>
+                  {collection}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <select
+              className="filter-select"
+              value={selectedTag}
+              onChange={(e) => {
+                setSelectedTag(e.target.value)
+                setCurrentPage(1)
+              }}
+              aria-label="Filter by tag"
+            >
+              <option value="">All Tags</option>
+              {metadata.tags.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </div>
+
+        </div>
 
         {loadingSnippets && snippets.length === 0 ? (
           <div className="loading-state">
@@ -540,112 +714,74 @@ function App() {
         ) : snippets.length === 0 ? (
           <div className="empty-state">
             <Grid size={64} />
-            <h2>No templates yet</h2>
-            <p>Click "Add Template" to save your first HTML template</p>
+            <h2>No templates found</h2>
+            <p>Try changing filters or add a new template.</p>
           </div>
         ) : (
-          <>
-            <div className="filters-container">
-              <div className="filter-group">
-                <Filter size={18} />
-                <select
-                  className="filter-select"
-                  value={filter}
-                  onChange={(e) => {
-                    const newFilter = e.target.value
-                    setFilter(newFilter)
-                    setCurrentPage(1)
-                    // Save filter to localStorage
-                    try {
-                      localStorage.setItem('templio_filter', newFilter)
-                    } catch (e) {
-                      // Ignore errors
-                    }
-                  }}
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="favorites">Favorites</option>
-                </select>
-              </div>
+          <div className="snippets-grid">
+            {snippets.map((snippet) => (
+              <SnippetCard
+                key={snippet.id}
+                snippet={snippet}
+                onView={handleViewSnippet}
+                onDelete={() => handleDeleteClick(snippet.id, snippet.title)}
+                onToggleFavorite={handleToggleFavorite}
+                isDeleting={deletingSnippetId === snippet.id}
+                isTogglingFavorite={togglingFavoriteId === snippet.id}
+              />
+            ))}
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="pagination">
+            <button
+              className="pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={18} />
+            </button>
+
+            <div className="pagination-pages">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                      onClick={() => setCurrentPage(page)}
+                      aria-label={`Go to page ${page}`}
+                    >
+                      {page}
+                    </button>
+                  )
+                }
+                if (page === currentPage - 2 || page === currentPage + 2) {
+                  return (
+                    <span key={page} className="pagination-ellipsis">
+                      ...
+                    </span>
+                  )
+                }
+                return null
+              })}
             </div>
-            <div className="snippets-grid">
-              {currentSnippets.length === 0 ? (
-                <div className="empty-state">
-                  <Grid size={64} />
-                  <h2>No templates found</h2>
-                  <p>
-                    {filter === 'favorites'
-                      ? "You haven't favorited any templates yet"
-                      : 'No templates match your filter'}
-                  </p>
-                </div>
-              ) : (
-                currentSnippets.map((snippet) => (
-                  <SnippetCard
-                    key={snippet.id}
-                    snippet={snippet}
-                    onView={handleViewSnippet}
-                    onDelete={() => handleDeleteClick(snippet.id, snippet.title)}
-                    onToggleFavorite={handleToggleFavorite}
-                    isDeleting={deletingSnippetId === snippet.id}
-                    isTogglingFavorite={togglingFavoriteId === snippet.id}
-                  />
-                ))
-              )}
-            </div>
-            
-            {totalPages > 1 && (
-              <div className="pagination">
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                
-                <div className="pagination-pages">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                    // Show first page, last page, current page, and pages around current
-                    if (
-                      page === 1 ||
-                      page === totalPages ||
-                      (page >= currentPage - 1 && page <= currentPage + 1)
-                    ) {
-                      return (
-                        <button
-                          key={page}
-                          className={`pagination-page ${currentPage === page ? 'active' : ''}`}
-                          onClick={() => handlePageChange(page)}
-                          aria-label={`Go to page ${page}`}
-                        >
-                          {page}
-                        </button>
-                      )
-                    } else if (page === currentPage - 2 || page === currentPage + 2) {
-                      return (
-                        <span key={page} className="pagination-ellipsis">
-                          ...
-                        </span>
-                      )
-                    }
-                    return null
-                  })}
-                </div>
-                
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  aria-label="Next page"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            )}
-          </>
+
+            <button
+              className="pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              aria-label="Next page"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
         )}
       </main>
 
@@ -664,4 +800,3 @@ function App() {
 }
 
 export default App
-

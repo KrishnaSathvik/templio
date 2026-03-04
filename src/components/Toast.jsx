@@ -27,7 +27,11 @@ const Toast = ({ toast, onClose }) => {
   }
 
   return (
-    <div className={`toast toast-${toast.type}`} role="alert">
+    <div
+      className={`toast toast-${toast.type}`}
+      role={toast.type === 'error' ? 'alert' : 'status'}
+      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+    >
       <div className="toast-icon">{getIcon()}</div>
       <div className="toast-content">
         {toast.title && <div className="toast-title">{toast.title}</div>}
@@ -45,4 +49,3 @@ const Toast = ({ toast, onClose }) => {
 }
 
 export default Toast
-

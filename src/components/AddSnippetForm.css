@@ -43,6 +43,22 @@
   border-bottom: 1px solid var(--border);
 }
 
+.form-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.btn-import {
+  height: 2.25rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8rem;
+}
+
 .form-header h2 {
   font-size: 1.5rem;
   font-weight: 600;
@@ -75,12 +91,31 @@
   margin-bottom: 1.5rem;
 }
 
+.form-group-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
   font-weight: 500;
   color: var(--text-primary);
   font-size: 0.95rem;
+}
+
+.form-help {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .form-group input,
@@ -131,6 +166,12 @@
   resize: vertical;
 }
 
+.btn-ai {
+  height: 2rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+}
+
 .form-actions {
   display: flex;
   gap: 1rem;
@@ -175,8 +216,11 @@
     flex-direction: column-reverse;
   }
 
+  .form-group-row {
+    grid-template-columns: 1fr;
+  }
+
   .form-actions .btn {
     width: 100%;
   }
 }
-

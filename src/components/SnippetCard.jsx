@@ -27,7 +27,7 @@ function SnippetCard({ snippet, onView, onDelete, onToggleFavorite, isDeleting, 
   }
 
   return (
-    <div className="snippet-card" onClick={() => onView(snippet)}>
+    <div className="snippet-card" onClick={() => onView(snippet)} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onView(snippet)}>
       {snippet.screenshot && (
         <div className="card-screenshot">
           <img src={snippet.screenshot} alt={snippet.title || 'Template'} />
@@ -66,6 +66,18 @@ function SnippetCard({ snippet, onView, onDelete, onToggleFavorite, isDeleting, 
         {snippet.description && (
           <p className="card-description">{snippet.description}</p>
         )}
+        {(snippet.collection || (snippet.tags && snippet.tags.length > 0)) && (
+          <div className="card-metadata">
+            {snippet.collection && (
+              <span className="chip chip-collection">{snippet.collection}</span>
+            )}
+            {(snippet.tags || []).slice(0, 4).map((tag) => (
+              <span className="chip chip-tag" key={`${snippet.id}-${tag}`}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="card-footer">
           <div className="card-date">
             <Calendar size={14} />
@@ -78,4 +90,3 @@ function SnippetCard({ snippet, onView, onDelete, onToggleFavorite, isDeleting, 
 }
 
 export default SnippetCard
-

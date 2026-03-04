@@ -42,6 +42,8 @@ All critical issues have been fixed:
    ```bash
    vercel env add VITE_SUPABASE_URL
    vercel env add VITE_SUPABASE_ANON_KEY
+   vercel env add OPENAI_API_KEY
+   vercel env add OPENAI_MODEL
    ```
    
    Or set them in Vercel Dashboard (see Option 2)
@@ -71,6 +73,8 @@ All critical issues have been fixed:
    - Add:
      - `VITE_SUPABASE_URL` = `https://your-project.supabase.co`
      - `VITE_SUPABASE_ANON_KEY` = `your-anon-key-here`
+     - `OPENAI_API_KEY` = `your-openai-key-here`
+     - `OPENAI_MODEL` = `gpt-4.1-mini`
    - Make sure to add them for **Production**, **Preview**, and **Development**
 
 4. **Deploy**:
@@ -94,6 +98,8 @@ Add these in Vercel Dashboard → Settings → Environment Variables:
 ```
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
+OPENAI_API_KEY=your-openai-key-here
+OPENAI_MODEL=gpt-4.1-mini
 ```
 
 **Important**: 
@@ -109,6 +115,17 @@ Your app includes:
 - ✅ Input validation
 - ✅ Error boundary (prevents crashes)
 - ✅ Production-safe logging
+- ✅ Server-side AI endpoint (`/api/ai-suggest`)
+
+## 🗄️ Database Migration (One Command)
+
+Before first deployment, run:
+
+```bash
+pnpm migrate
+```
+
+This applies every SQL file in `/migrations` against `DATABASE_URL`.
 
 ## 📊 Post-Deployment
 
@@ -187,4 +204,3 @@ Your app is production-ready and can be deployed to Vercel right now. All critic
 **Need Help?**
 - Vercel Docs: https://vercel.com/docs
 - Vercel Support: https://vercel.com/support
-
