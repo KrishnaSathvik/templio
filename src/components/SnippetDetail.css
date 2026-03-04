@@ -114,6 +114,32 @@
   color: var(--text);
 }
 
+.detail-direct-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.detail-direct-share-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.detail-direct-share-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.btn-share-target {
+  height: 2rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.76rem;
+}
+
 .detail-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -924,6 +950,21 @@
   .detail-actions .btn {
     flex: 1;
     min-width: 120px;
+  }
+
+  .detail-direct-share {
+    margin-top: 0.6rem;
+  }
+
+  .detail-direct-share-buttons {
+    width: 100%;
+  }
+
+  .btn-share-target {
+    height: 1.95rem;
+    min-width: 108px;
+    padding: 0.35rem 0.6rem;
+    flex: 1 1 auto;
   }
 
   .code-panel {

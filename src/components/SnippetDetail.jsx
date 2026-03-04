@@ -37,9 +37,18 @@ function SnippetDetail({
   onTrackView,
   onCreateShare,
   onRevokeShare,
+  onShareToTarget,
   shareUrl,
   shareLoading = false,
 }) {
+  const directShareTargets = [
+    { id: 'whatsapp', label: 'WhatsApp' },
+    { id: 'imessage', label: 'iMessage' },
+    { id: 'chatgpt', label: 'ChatGPT' },
+    { id: 'claude', label: 'Claude' },
+    { id: 'gemini', label: 'Gemini' },
+  ]
+
   const getInitialView = () => {
     if (sharedPreview) return 'preview'
     const params = new URLSearchParams(window.location.search)
@@ -256,6 +265,30 @@ ${html}
     )
   }
 
+  const renderDirectShareActions = () => {
+    if (readOnly || !onShareToTarget) return null
+
+    return (
+      <div className="detail-direct-share">
+        <span className="detail-direct-share-label">Share via:</span>
+        <div className="detail-direct-share-buttons">
+          {directShareTargets.map((target) => (
+            <button
+              key={target.id}
+              type="button"
+              className="btn btn-secondary btn-share-target"
+              onClick={() => onShareToTarget(target.id)}
+              disabled={shareLoading}
+              title={`Share public link via ${target.label}`}
+            >
+              {target.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   const renderPreviewSecurityControls = () => (
     sharedPreview ? null : (
     <button
@@ -329,6 +362,7 @@ ${html}
             Share URL: <code>{shareUrl}</code>
           </p>
         )}
+        {renderDirectShareActions()}
         {(snippet.collection || (snippet.tags && snippet.tags.length > 0)) && (
           <div className="detail-chip-row">
             {snippet.collection ? <span className="detail-chip">{snippet.collection}</span> : null}
@@ -405,6 +439,12 @@ ${html}
           <div className="detail-title-section">
             <h1>{snippet.title}</h1>
             {snippet.description && <p className="detail-description">{snippet.description}</p>}
+            {!readOnly && shareUrl && (
+              <p className="detail-share-url">
+                Share URL: <code>{shareUrl}</code>
+              </p>
+            )}
+            {renderDirectShareActions()}
           </div>
           <div className="detail-actions">
             {renderShareActions()}

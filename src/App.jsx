@@ -29,6 +29,14 @@ import './App.css'
 
 const ITEMS_PER_PAGE = 6
 
+const DIRECT_SHARE_TARGET_LABELS = {
+  whatsapp: 'WhatsApp',
+  imessage: 'iMessage',
+  chatgpt: 'ChatGPT',
+  claude: 'Claude',
+  gemini: 'Gemini',
+}
+
 const readSaved = (key, fallback = '') => {
   try {
     return localStorage.getItem(key) || fallback
@@ -295,11 +303,16 @@ function App() {
     }
 
     let cancelled = false
+    setShareUrl('')
 
     shareService
       .getShareBySnippetId(selectedSnippet.id)
       .then((existingShare) => {
-        if (cancelled || !existingShare?.token) return
+        if (cancelled) return
+        if (!existingShare?.token) {
+          setShareUrl('')
+          return
+        }
         const url = new URL(window.location.origin + window.location.pathname)
         url.searchParams.set('share', existingShare.token)
         setShareUrl(url.toString())
@@ -491,6 +504,73 @@ function App() {
     }
   }
 
+  const getDirectShareHref = (target, message) => {
+    const encoded = encodeURIComponent(message)
+
+    switch (target) {
+      case 'whatsapp':
+        return `https://wa.me/?text=${encoded}`
+      case 'imessage': {
+        const isAppleDevice = /iPad|iPhone|iPod|Macintosh/i.test(navigator.userAgent)
+        return isAppleDevice ? `imessage:&body=${encoded}` : `sms:?&body=${encoded}`
+      }
+      case 'chatgpt':
+        return `https://chatgpt.com/?q=${encoded}`
+      case 'claude':
+        return `https://claude.ai/new?q=${encoded}`
+      case 'gemini':
+        return `https://gemini.google.com/app?prompt=${encoded}`
+      default:
+        return ''
+    }
+  }
+
+  const handleShareToTarget = async (target) => {
+    if (!selectedSnippet) return
+
+    const targetLabel = DIRECT_SHARE_TARGET_LABELS[target] || 'selected app'
+    setShareLoading(true)
+
+    try {
+      let link = shareUrl
+
+      if (!link) {
+        const share = await shareService.createOrUpdateShare(selectedSnippet)
+        const url = new URL(window.location.origin + window.location.pathname)
+        url.searchParams.set('share', share.token)
+        link = url.toString()
+        setShareUrl(link)
+      }
+
+      const message = `Check out this HTML template: ${selectedSnippet.title}\n${link}`
+      const href = getDirectShareHref(target, message)
+
+      if (!href) {
+        throw new Error(`Unsupported share destination: ${target}`)
+      }
+
+      const isNativeScheme = href.startsWith('imessage:') || href.startsWith('sms:')
+      if (isNativeScheme) {
+        window.location.href = href
+      } else {
+        const popup = window.open(href, '_blank', 'noopener,noreferrer')
+        if (!popup) {
+          await navigator.clipboard.writeText(link)
+          toast.warning(`${targetLabel} was blocked by your browser. Link copied instead.`)
+          return
+        }
+      }
+
+      analytics.trackShare(selectedSnippet.id)
+      toast.success(`Opened ${targetLabel} share`)
+    } catch (error) {
+      logger.error(`Failed to share via ${target}:`, error)
+      toast.error(error.message || `Failed to share via ${targetLabel}.`)
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
   const handleRevokeShare = async () => {
     if (!selectedSnippet) return
     setShareLoading(true)
@@ -584,6 +664,7 @@ function App() {
           onTrackView={(id) => analytics.trackView(id)}
           onCreateShare={handleCreateShare}
           onRevokeShare={handleRevokeShare}
+          onShareToTarget={handleShareToTarget}
           shareUrl={shareUrl}
           shareLoading={shareLoading || updatingSnippetId === selectedSnippet.id}
         />
